@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AETHER-GRID // Autonomous Node Dashboard</title>
+    <style>
+        :root {
+            --bg: #08090a;
+            --panel: #121417;
+            --border: #22262c;
+            --text-primary: #f0f2f5;
+            --text-secondary: #8a8f98;
+            --accent: #5e6ad2;
+            --accent-glow: rgba(94, 106, 210, 0.15);
+            --success: #27c93f;
+            --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg); color: var(--text-primary); min-height: 100vh; padding: 24px; overflow-x: hidden; }
+
+        /* Header */
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 12px var(--accent); animation: pulse 3.14s infinite ease-in-out; }
+        h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+        .status-badge { font-family: var(--font-mono); font-size: 11px; padding: 4px 10px; border-radius: 20px; background: rgba(39, 201, 63, 0.1); color: var(--success); border: 1px solid rgba(39, 201, 63, 0.2); }
+
+        /* High-Density Dashboard Grid */
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px; position: relative; overflow: hidden; }
+        .card-title { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .card-value { font-family: var(--font-mono); font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+        .card-sub { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+
+        /* Monetization CTA Banner */
+        .cta-banner { background: linear-gradient(135deg, rgba(94, 106, 210, 0.1) 0%, rgba(18, 20, 23, 1) 100%); border: 1px solid var(--accent); border-radius: 8px; padding: 24px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .cta-btn { background: var(--accent); color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .cta-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+
+        /* Topology / Canvas Preview */
+        .canvas-container { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; height: 320px; position: relative; display: flex; align-items: center; justify-content: center; }
+        canvas { width: 100%; height: 100%; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="brand">
+            <div class="logo-dot"></div>
+            <h1>AETHER-GRID // Node 01</h1>
+        </div>
+        <div class="status-badge">● M2M LIVE / OPERATIONAL</div>
+    </header>
+
+    <div class="grid">
+        <div class="card">
+            <div class="card-title">M2M 累計収益</div>
+            <div class="card-value" id="revenue">$3,420.50</div>
+            <div class="card-sub">+12.4% vs last hour</div>
+        </div>
+        <div class="card">
+            <div class="card-title">アクティブAIエージェント</div>
+            <div class="card-value" id="agents">1,420</div>
+            <div class="card-sub">接続ノード数 (リアルタイム)</div>
+        </div>
+        <div class="card">
+            <div class="card-title">スループット (RPS)</div>
+            <div class="card-value" id="rps">850.5</div>
+            <div class="card-sub">Req / Sec (自動平滑化)</div>
+        </div>
+        <div class="card">
+            <div class="card-title">ゆらぎインデックス (1/f)</div>
+            <div class="card-value" id="fluctuation">0.982</div>
+            <div class="card-sub">Optimal Load Balance</div>
+        </div>
+    </div>
+
+    <div class="cta-banner">
+        <div>
+            <h2 style="font-size: 18px; margin-bottom: 4px;">商用APIキー & 大容量M2Mエンドポイント</h2>
+            <p style="color: var(--text-secondary); font-size: 13px;">月額 $29 より。開発者・AIスウォーム向けの無制限アクセスライセンス</p>
+        </div>
+        <button class="cta-btn" onclick="subscribe()">即時プラン購入 (Stripe)</button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="visualizer"></canvas>
+    </div>
+
+    <script>
+        async function fetchMetrics() {
+            try {
+                const res = await fetch('/api/v1/metrics');
+                const data = await res.json();
+                document.getElementById('revenue').innerText = '$' + data.m2m_revenue_usd.toLocaleString();
+                document.getElementById('agents').innerText = data.active_agents.toLocaleString();
+                document.getElementById('rps').innerText = data.throughput_rps;
+                document.getElementById('fluctuation').innerText = data.fluctuation_index;
+            } catch (e) {
+                console.log('Metrics fetch fallback active');
+            }
+        }
+        setInterval(fetchMetrics, 2000);
+
+        function subscribe() {
+            fetch('/api/v1/checkout/create-session?plan=pro', {method: 'POST'})
+                .then(r => r.json())
+                .then(data => alert('マネタイズ決済ポータルへ遷移します: ' + data.checkout_url));
+        }
+
+        // Simple 1/f topology visualizer
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = canvas.offsetWidth;
+        let height = canvas.height = canvas.offsetHeight;
+
+        function draw() {
+            ctx.fillStyle = '#121417';
+            ctx.fillRect(0, 0, width, height);
+            
+            const t = Date.now() * 0.002;
+            ctx.strokeStyle = '#5e6ad2';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            
+            for (let x = 0; x < width; x += 10) {
+                const y = height / 2 + Math.sin(x * 0.01 + t) * 30 + Math.sin(x * 0.02 + t * 0.5) * 15;
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            requestAnimationFrame(draw);
+        }
+        draw();
+    </script>
+</body>
+</html>
